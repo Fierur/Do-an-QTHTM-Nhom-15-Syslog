@@ -1,0 +1,48 @@
+# =============================================================================
+# FILE    : server/rsyslog-remote.logrotate
+# MỤC ĐÍCH: Tự động xoay vòng (rotate) file log trong /var/log/remote/
+# CÀI ĐẶT : Copy vào /etc/logrotate.d/rsyslog-remote
+# CHẠY TỰ ĐỘNG: logrotate được cron chạy mỗi ngày qua /etc/cron.daily/logrotate
+# =============================================================================
+
+# Áp dụng cho tất cả file .log trong thư mục của từng hostname
+/var/log/remote/*/*.log
+/var/log/alerts/*.log
+{
+    # Rotate mỗi ngày — phù hợp với môi trường lab có nhiều log
+    daily
+
+    # Giữ lại 30 bản backup (tương đương 30 ngày)
+    rotate 30
+
+    # Nén file log cũ bằng gzip để tiết kiệm dung lượng
+    compress
+
+    # Không nén file log vừa mới rotate (file .1) — delay sang ngày hôm sau
+    # Lý do: rsyslog có thể vẫn đang ghi vào file cũ trong vài giây
+    delaycompress
+
+    # Không báo lỗi nếu file log không tồn tại
+    missingok
+
+    # Không rotate nếu file trống — tránh tạo file .gz rỗng
+    notifempty
+
+    # Tự động tạo file log mới sau khi rotate với đúng quyền
+    create 0640 syslog adm
+
+    # Tạo thư mục con nếu chưa tồn tại (cho hostname mới thêm)
+    createolddir 0750 syslog adm
+
+    # Chia sẻ postrotate script cho tất cả pattern trong block này
+    sharedscripts
+
+    # Hành động SAU KHI rotate: reload rsyslog để nó mở file log mới
+    # Dùng reload thay vì restart để tránh mất log đang buffer
+    postrotate
+        # Kiểm tra rsyslog có đang chạy không trước khi reload
+        if systemctl is-active --quiet rsyslog; then
+            systemctl reload rsyslog
+        fi
+    endscript
+}
