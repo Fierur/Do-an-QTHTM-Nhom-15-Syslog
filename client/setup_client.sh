@@ -102,7 +102,7 @@ network:
   version: 2
   ethernets:
     ${IFACE}:
-      dhcp4: false
+      dhcp4: true
       addresses:
         - ${IP_CLIENT}/24
       routes:
