@@ -105,13 +105,9 @@ network:
       dhcp4: true
       addresses:
         - ${IP_CLIENT}/24
-      routes:
-        - to: default
-          via: 192.168.10.1
-      nameservers:
-        addresses:
-          - 8.8.8.8
-          - 1.1.1.1
+
+    ens37:
+      dhcp4: true
 EOF
 
 netplan apply 2>/dev/null || true
