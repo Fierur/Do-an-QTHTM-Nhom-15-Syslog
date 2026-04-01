@@ -75,7 +75,7 @@ network:
   version: 2
   ethernets:
     ${IFACE}:
-      dhcp4: false
+      dhcp4: true
       addresses:
         - 192.168.10.100/24
       routes:
