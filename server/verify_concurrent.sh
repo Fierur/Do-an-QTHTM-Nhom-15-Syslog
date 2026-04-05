@@ -62,7 +62,7 @@ for CLIENT_ID in 1 2 3; do
     SYSLOG="$LOG_DIR/$HOST/syslog.log"
 
     echo ""
-    echo -e "    ${CYAN}${BOLD}▶ Client $CLIENT_ID ($HOST)${NC}"
+    echo -e "    ${CYAN}${BOLD} Client $CLIENT_ID ($HOST)${NC}"
 
     # Kiểm tra file log tồn tại
     if [[ ! -f "$SYSLOG" ]]; then
@@ -117,7 +117,7 @@ for CLIENT_ID in 1 2 3; do
     MISSING_COUNT=$(echo "$MISSING_SEQS" | grep -c "[0-9]" || echo 0)
 
     if [[ $MISSING_COUNT -gt 0 ]]; then
-        echo -e "    ${YELLOW}⚠️  Missing    : $MISSING_COUNT dòng bị mất${NC}"
+        echo -e "    ${YELLOW}  Missing    : $MISSING_COUNT dòng bị mất${NC}"
         # Chỉ in tối đa 10 seq bị mất để không spam màn hình
         MISSING_PREVIEW=$(echo "$MISSING_SEQS" | head -10 | tr '\n' ' ')
         echo -e "    ${YELLOW}   Seq thiếu (tối đa 10): $MISSING_PREVIEW${NC}"
