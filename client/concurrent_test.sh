@@ -24,7 +24,7 @@ NC='\033[0m'
 # Kiểm tra tham số CLIENT_ID
 # --------------------------------------------------------------------------- #
 if [[ $# -lt 1 ]]; then
-    echo -e "${RED}❌ Thiếu CLIENT_ID!${NC}"
+    echo -e "${RED} Thiếu CLIENT_ID!${NC}"
     echo "Cú pháp: bash $0 <CLIENT_ID>"
     echo "CLIENT_ID: 1 = web-client, 2 = app-client, 3 = db-client"
     exit 1
@@ -34,7 +34,7 @@ CLIENT_ID="$1"
 
 # Validate: CLIENT_ID phải là 1, 2 hoặc 3
 if [[ ! "$CLIENT_ID" =~ ^[123]$ ]]; then
-    echo -e "${RED}❌ CLIENT_ID không hợp lệ: $CLIENT_ID (chỉ dùng 1, 2, hoặc 3)${NC}"
+    echo -e "${RED} CLIENT_ID không hợp lệ: $CLIENT_ID (chỉ dùng 1, 2, hoặc 3)${NC}"
     exit 1
 fi
 
@@ -48,7 +48,7 @@ echo -e "${CYAN}============================================================${NC
 echo -e "  Sẽ gửi: ${YELLOW}$TOTAL_MESSAGES dòng log${NC} đến $SERVER_IP"
 echo -e "  Client ID: $CLIENT_ID"
 echo ""
-echo -e "${YELLOW}⚠️  Hãy chắc chắn 2 client kia cũng đang chạy script này!${NC}"
+echo -e "${YELLOW}  Hãy chắc chắn 2 client kia cũng đang chạy script này!${NC}"
 echo -e "  Đợi 3 giây rồi bắt đầu gửi..."
 sleep 3
 
