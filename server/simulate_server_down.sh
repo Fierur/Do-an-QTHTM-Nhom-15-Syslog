@@ -68,7 +68,7 @@ if [[ -d "$LOG_DIR" ]]; then
 fi
 
 if [[ ${#HOSTS[@]} -eq 0 ]]; then
-    echo -e "${YELLOW}⚠️  Chưa có host nào — các client chưa gửi log?${NC}"
+    echo -e "${YELLOW}  Chưa có host nào — các client chưa gửi log?${NC}"
     echo -e "Hãy chạy test_send_log.sh trên ít nhất 1 client trước."
     exit 1
 fi
@@ -214,7 +214,7 @@ for HOST in "${HOSTS[@]}"; do
             done
         fi
     else
-        echo -e "    ${RED}❌ Disk Queue KHÔNG hoạt động — không nhận thêm dòng nào${NC}"
+        echo -e "    ${RED} Disk Queue KHÔNG hoạt động — không nhận thêm dòng nào${NC}"
         echo -e "    ${RED}   Kiểm tra: queue.saveonshutdown='on' trong rsyslog-client.conf${NC}"
         echo -e "    ${RED}   Kiểm tra: ls -lh /var/spool/rsyslog/ trên client${NC}"
     fi
@@ -234,12 +234,7 @@ if [[ "$QUEUE_WORKED" == "true" ]]; then
     echo "  ║  Log KHÔNG bị mất dù server down 30 giây            ║"
     echo "  ╚══════════════════════════════════════════════════════╝"
     echo -e "${NC}"
-    echo -e "  ${CYAN}Giải thích kỹ thuật cho giảng viên:${NC}"
-    echo -e "  1. Client cấu hình queue.type=LinkedList + queue.filename=fwdRule"
-    echo -e "  2. Khi TCP đến server bị ngắt → Rsyslog client ghi log vào file .qf"
-    echo -e "  3. queue.saveonshutdown=on → queue an toàn dù client restart"
-    echo -e "  4. action.resumeRetryCount=-1 → retry vô hạn lần mỗi 10 giây"
-    echo -e "  5. Khi server online → client flush queue theo thứ tự FIFO"
+    
 else
     echo -e "${RED}${BOLD}"
     echo "  ╔══════════════════════════════════════════════════════╗"
