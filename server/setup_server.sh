@@ -18,9 +18,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Hàm in trạng thái bước
-ok()   { echo -e "${GREEN}✅ $1${NC}"; }
-fail() { echo -e "${RED}❌ $1${NC}"; exit 1; }
-info() { echo -e "${BLUE}➡️  $1${NC}"; }
+ok()   { echo -e "${GREEN}OK $1${NC}"; }
+fail() { echo -e "${RED}FAIL $1${NC}"; exit 1; }
+info() { echo -e "${BLUE}INFO  $1${NC}"; }
 
 # --------------------------------------------------------------------------- #
 # BƯỚC 0: Kiểm tra quyền root
@@ -145,7 +145,7 @@ if [[ -f "$SCRIPT_DIR/alert_rules.conf" ]]; then
     cp "$SCRIPT_DIR/alert_rules.conf" /etc/rsyslog.d/99-alerts.conf
     ok "alert_rules.conf đã copy vào /etc/rsyslog.d/99-alerts.conf"
 else
-    echo -e "${YELLOW}⚠️  Không tìm thấy alert_rules.conf — bỏ qua${NC}"
+    echo -e "${YELLOW}  Không tìm thấy alert_rules.conf — bỏ qua${NC}"
 fi
 
 # --------------------------------------------------------------------------- #
@@ -156,7 +156,7 @@ if [[ -f "$SCRIPT_DIR/rsyslog-remote.logrotate" ]]; then
     cp "$SCRIPT_DIR/rsyslog-remote.logrotate" /etc/logrotate.d/rsyslog-remote
     ok "Logrotate đã cấu hình"
 else
-    echo -e "${YELLOW}⚠️  Không tìm thấy rsyslog-remote.logrotate — bỏ qua${NC}"
+    echo -e "${YELLOW}  Không tìm thấy rsyslog-remote.logrotate — bỏ qua${NC}"
 fi
 
 # --------------------------------------------------------------------------- #
