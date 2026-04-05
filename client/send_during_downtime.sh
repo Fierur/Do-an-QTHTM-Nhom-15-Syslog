@@ -100,33 +100,51 @@ echo -e "  Thư mục queue: $QUEUE_DIR"
 echo ""
 
 if [[ -d "$QUEUE_DIR" ]]; then
-    QUEUE_FILES=$(ls -lh "$QUEUE_DIR" 2>/dev/null | grep -E "\.(qf|qi)$" || true)
-    if [[ -n "$QUEUE_FILES" ]]; then
-        echo -e "  ${GREEN} Queue files đã được tạo (log đang chờ trên disk):${NC}"
-        echo -e "$QUEUE_FILES" | while IFS= read -r line; do
-            echo -e "    ${GREEN}$line${NC}"
+    shopt -s nullglob
+
+    # Bắt tất cả file queue: dạng số (.00000001) + prefix nếu có
+    queue_files=(
+        "$QUEUE_DIR"/*.[0-9]*
+        "$QUEUE_DIR"/fwdRule_auth*
+        "$QUEUE_DIR"/*.qf
+        "$QUEUE_DIR"/*.qi
+    )
+
+    if (( ${#queue_files[@]} > 0 )); then
+        echo -e "  ${GREEN}✅ Queue files đã được tạo (log đang chờ trên disk):${NC}"
+        
+        for f in "${queue_files[@]}"; do
+            [[ -e "$f" ]] || continue
+            echo -e "    ${GREEN}$(ls -lh "$f")${NC}"
         done
+
         echo ""
         echo -e "  ${CYAN}Giải thích file:${NC}"
-        echo -e "  • fwdRule_auth-NNNNN.qf  → File chứa message đang chờ gửi"
-        echo -e "  • fwdRule_auth.qi         → File index (vị trí đọc/ghi)"
-        echo -e "  • Khi server online → Rsyslog đọc .qf theo thứ tự và gửi"
-        echo -e "  • Khi queue rỗng → cả hai file bị xóa tự động"
+        echo -e "  • *.00000001 → File queue (log đang chờ gửi)"
+        echo -e "  • *.qf / *.qi → Queue format cũ (nếu có)"
+        echo -e "  • *.state → Trạng thái queue"
+        echo -e "  • Server online → rsyslog đọc và gửi dần"
+        echo -e "  • Queue rỗng → file tự xóa"
+
     else
-        echo -e "  ${YELLOW}  Không thấy file .qf/.qi${NC}"
+        echo -e "  ${YELLOW}⚠️ Không thấy file queue${NC}"
         echo -e "  Có thể vì:"
-        echo -e "  1. Server đã online lại và queue flush nhanh hơn bạn kiểm tra"
-        echo -e "  2. Rsyslog client chưa tạo queue (kiểm tra cấu hình)"
-        echo -e "  3. Thư mục queue khác: ls -la /var/spool/rsyslog/"
+        echo -e "  1. Queue đang ở memory (chưa flush xuống disk)"
+        echo -e "  2. Server đã online → queue flush rất nhanh"
+        echo -e "  3. Sai WorkDirectory hoặc queue.filename"
     fi
 
     echo ""
     echo -e "  ${BOLD}Tất cả file trong $QUEUE_DIR:${NC}"
-    ls -lh "$QUEUE_DIR" 2>/dev/null || echo "  (trống)"
+    ls -lah "$QUEUE_DIR" 2>/dev/null || echo "  (trống)"
+
 else
-    echo -e "  ${RED} Thư mục $QUEUE_DIR không tồn tại!${NC}"
-    echo -e "  Kiểm tra \$WorkDirectory trong /etc/rsyslog.d/99-remote.conf"
-    echo -e "  Hoặc tạo thủ công: sudo mkdir -p $QUEUE_DIR && sudo chown syslog: $QUEUE_DIR"
+    echo -e "  ${RED}❌ Thư mục $QUEUE_DIR không tồn tại!${NC}"
+    echo -e "  Kiểm tra:"
+    echo -e "  • \$WorkDirectory trong rsyslog.conf"
+    echo -e "  • queue.filename trong action"
+    echo -e "  • Tạo thủ công nếu cần:"
+    echo -e "    sudo mkdir -p $QUEUE_DIR && sudo chown syslog: $QUEUE_DIR"
 fi
 
 echo ""
