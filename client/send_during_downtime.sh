@@ -80,7 +80,7 @@ for seq in $(seq 1 $TOTAL_MESSAGES); do
 done
 
 echo ""
-echo -e "${GREEN}✅ Đã gửi xong $TOTAL_MESSAGES dòng log${NC}"
+echo -e "${GREEN} Đã gửi xong $TOTAL_MESSAGES dòng log${NC}"
 echo ""
 
 # --------------------------------------------------------------------------- #
