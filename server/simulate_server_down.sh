@@ -88,6 +88,7 @@ echo ""
 echo -e "${BOLD}${BLUE}[BƯỚC 2] Dừng Rsyslog Server${NC}"
 echo -e "         ────────────────────────────────────"
 
+systemctl stop syslog.socket
 systemctl stop rsyslog
 sleep 1
 
