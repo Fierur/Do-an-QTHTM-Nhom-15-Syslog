@@ -48,7 +48,7 @@ usage() {
 # Kiểm tra tham số đầu vào
 # --------------------------------------------------------------------------- #
 if [[ $# -lt 2 ]]; then
-    echo -e "${RED}❌ Thiếu tham số!${NC}"
+    echo -e "${RED} Thiếu tham số!${NC}"
     usage
 fi
 
@@ -60,7 +60,7 @@ SEARCH_DATE="${3:-}"   # Tham số thứ 3 là tùy chọn, mặc định rỗng
 # Kiểm tra thư mục log tồn tại
 # --------------------------------------------------------------------------- #
 if [[ ! -d "$LOG_DIR" ]]; then
-    echo -e "${RED}❌ Thư mục $LOG_DIR không tồn tại!${NC}"
+    echo -e "${RED} Thư mục $LOG_DIR không tồn tại!${NC}"
     echo -e "   Script này phải chạy trên Syslog Server (192.168.10.100)"
     exit 1
 fi
@@ -76,13 +76,13 @@ if [[ "$SEARCH_HOST" == "all" ]]; then
     done < <(find "$LOG_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
 
     if [[ ${#HOSTS[@]} -eq 0 ]]; then
-        echo -e "${YELLOW}⚠️  Không tìm thấy host nào trong $LOG_DIR${NC}"
+        echo -e "${YELLOW}  Không tìm thấy host nào trong $LOG_DIR${NC}"
         exit 0
     fi
 else
     # Tìm một host cụ thể
     if [[ ! -d "$LOG_DIR/$SEARCH_HOST" ]]; then
-        echo -e "${RED}❌ Host '$SEARCH_HOST' không tồn tại trong $LOG_DIR${NC}"
+        echo -e "${RED} Host '$SEARCH_HOST' không tồn tại trong $LOG_DIR${NC}"
         echo -e "   Các host hiện có:"
         ls "$LOG_DIR" 2>/dev/null | while read -r h; do
             echo -e "   • $h"
@@ -161,7 +161,7 @@ search_in_file() {
 # --------------------------------------------------------------------------- #
 for host in "${HOSTS[@]}"; do
     HOST_DIR="$LOG_DIR/$host"
-    echo -e "${BLUE}${BOLD}🔍 Tìm trong host: $host${NC}"
+    echo -e "${BLUE}${BOLD} Tìm trong host: $host${NC}"
 
     # Tìm trong tất cả file log của host
     search_in_file "$HOST_DIR/syslog.log" "$host" "syslog.log"
@@ -174,7 +174,7 @@ done
 # --------------------------------------------------------------------------- #
 ALERT_DIR="/var/log/alerts"
 if [[ -d "$ALERT_DIR" ]]; then
-    echo -e "${BLUE}${BOLD}🔍 Tìm trong file cảnh báo (alerts):${NC}"
+    echo -e "${BLUE}${BOLD} Tìm trong file cảnh báo (alerts):${NC}"
     search_in_file "$ALERT_DIR/brute_force.log" "ALERTS" "brute_force.log"
     search_in_file "$ALERT_DIR/critical.log"    "ALERTS" "critical.log"
 fi
