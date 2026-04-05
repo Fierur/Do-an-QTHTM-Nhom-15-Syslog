@@ -43,13 +43,13 @@ echo -e "  Sẽ gửi : $TOTAL_MESSAGES dòng log"
 echo ""
 
 # Cảnh báo: server có thể đã online lại
-echo -e "${YELLOW}⚠️  Script này phải chạy TRONG KHI server đang offline!${NC}"
+echo -e "${YELLOW}  Script này phải chạy TRONG KHI server đang offline!${NC}"
 echo -e "${YELLOW}   Nếu server online rồi, log sẽ gửi thẳng (không qua queue)${NC}"
 echo ""
 
 # Kiểm tra nhanh server còn offline không (timeout 2 giây)
 if nc -zw2 "$SERVER_IP" 514 2>/dev/null; then
-    echo -e "${YELLOW}⚠️  Cảnh báo: Server có vẻ ONLINE — log có thể gửi thẳng, không qua Disk Queue${NC}"
+    echo -e "${YELLOW}  Cảnh báo: Server có vẻ ONLINE — log có thể gửi thẳng, không qua Disk Queue${NC}"
     echo -e "${YELLOW}   Để test Disk Queue, cần chạy trước khi server restart${NC}"
     echo ""
 fi
@@ -100,7 +100,7 @@ echo ""
 if [[ -d "$QUEUE_DIR" ]]; then
     QUEUE_FILES=$(ls -lh "$QUEUE_DIR" 2>/dev/null | grep -E "\.(qf|qi)$" || true)
     if [[ -n "$QUEUE_FILES" ]]; then
-        echo -e "  ${GREEN}✅ Queue files đã được tạo (log đang chờ trên disk):${NC}"
+        echo -e "  ${GREEN} Queue files đã được tạo (log đang chờ trên disk):${NC}"
         echo -e "$QUEUE_FILES" | while IFS= read -r line; do
             echo -e "    ${GREEN}$line${NC}"
         done
@@ -111,7 +111,7 @@ if [[ -d "$QUEUE_DIR" ]]; then
         echo -e "  • Khi server online → Rsyslog đọc .qf theo thứ tự và gửi"
         echo -e "  • Khi queue rỗng → cả hai file bị xóa tự động"
     else
-        echo -e "  ${YELLOW}⚠️  Không thấy file .qf/.qi${NC}"
+        echo -e "  ${YELLOW}  Không thấy file .qf/.qi${NC}"
         echo -e "  Có thể vì:"
         echo -e "  1. Server đã online lại và queue flush nhanh hơn bạn kiểm tra"
         echo -e "  2. Rsyslog client chưa tạo queue (kiểm tra cấu hình)"
@@ -122,7 +122,7 @@ if [[ -d "$QUEUE_DIR" ]]; then
     echo -e "  ${BOLD}Tất cả file trong $QUEUE_DIR:${NC}"
     ls -lh "$QUEUE_DIR" 2>/dev/null || echo "  (trống)"
 else
-    echo -e "  ${RED}❌ Thư mục $QUEUE_DIR không tồn tại!${NC}"
+    echo -e "  ${RED} Thư mục $QUEUE_DIR không tồn tại!${NC}"
     echo -e "  Kiểm tra \$WorkDirectory trong /etc/rsyslog.d/99-remote.conf"
     echo -e "  Hoặc tạo thủ công: sudo mkdir -p $QUEUE_DIR && sudo chown syslog: $QUEUE_DIR"
 fi
