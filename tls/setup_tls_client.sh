@@ -25,9 +25,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-ok()   { echo -e "${GREEN}✅ $1${NC}"; }
-fail() { echo -e "${RED}❌ $1${NC}"; exit 1; }
-info() { echo -e "${BLUE}➡️  $1${NC}"; }
+ok()   { echo -e "${GREEN}OK $1${NC}"; }
+fail() { echo -e "${RED}FAIL $1${NC}"; exit 1; }
+info() { echo -e "${BLUE}INFO  $1${NC}"; }
 
 # --------------------------------------------------------------------------- #
 # Kiểm tra tham số
@@ -75,7 +75,7 @@ if [[ ! -f "$CERT_DIR/ca.crt" ]]; then
         cp "/tmp/ca.crt" "$CERT_DIR/ca.crt"
         ok "CA cert đã copy từ /tmp/ca.crt"
     else
-        echo -e "${RED}❌ Không tìm thấy ca.crt!${NC}"
+        echo -e "${RED} Không tìm thấy ca.crt!${NC}"
         echo ""
         echo -e "${YELLOW}  Hướng dẫn: Chạy lệnh này TRÊN SERVER để copy sang client:${NC}"
         echo -e "  ${CYAN}scp /etc/stunnel/certs/ca.crt $(whoami)@${CLIENT_IP}:/tmp/ca.crt${NC}"
@@ -129,7 +129,7 @@ if [[ ! -f "$CLIENT_KEY" ]]; then
         rm -f "$CLIENT_CSR"
         ok "Client certificate đã ký bởi CA"
     else
-        echo -e "${YELLOW}⚠️  Không có ca.key — cần ký cert trên Server${NC}"
+        echo -e "${YELLOW}  Không có ca.key — cần ký cert trên Server${NC}"
         echo ""
         echo -e "  Thay thế: Copy CSR lên Server để ký, rồi copy cert về:"
         echo -e "  ${CYAN}# Trên CLIENT — copy CSR lên server:${NC}"
