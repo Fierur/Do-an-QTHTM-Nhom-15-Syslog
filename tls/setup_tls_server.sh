@@ -28,9 +28,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-ok()   { echo -e "${GREEN}✅ $1${NC}"; }
-fail() { echo -e "${RED}❌ $1${NC}"; exit 1; }
-info() { echo -e "${BLUE}➡️  $1${NC}"; }
+ok()   { echo -e "${GREEN}OK $1${NC}"; }
+fail() { echo -e "${RED}FAIL $1${NC}"; exit 1; }
+info() { echo -e "${BLUE}INFO  $1${NC}"; }
 
 # Kiểm tra root
 [[ $EUID -ne 0 ]] && fail "Cần quyền root. Chạy: sudo bash $0"
@@ -210,7 +210,7 @@ sleep 2
 if systemctl is-active --quiet stunnel4; then
     ok "Stunnel4 đang chạy"
 else
-    echo -e "${RED}❌ Stunnel4 không khởi động được${NC}"
+    echo -e "${RED} Stunnel4 không khởi động được${NC}"
     echo "Xem log: journalctl -u stunnel4 -n 20"
     exit 1
 fi
@@ -235,7 +235,7 @@ ok "Port TCP/$TLS_PORT đã mở cho 192.168.10.0/24"
 ###############################################################################
 echo ""
 echo -e "${YELLOW}${BOLD}============================================================${NC}"
-echo -e "${YELLOW}  📋 BƯỚC TIẾP THEO — Copy CA cert sang từng client${NC}"
+echo -e "${YELLOW}   BƯỚC TIẾP THEO — Copy CA cert sang từng client${NC}"
 echo -e "${YELLOW}============================================================${NC}"
 echo ""
 echo -e "  Chạy lệnh SAU TRÊN SERVER để copy ca.crt sang client:"
