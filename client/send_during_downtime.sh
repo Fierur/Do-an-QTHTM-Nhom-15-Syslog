@@ -48,23 +48,16 @@ echo -e "${YELLOW}   Nếu server online rồi, log sẽ gửi thẳng (không q
 echo ""
 
 # Kiểm tra nhanh server còn offline không (timeout 2 giây)
-if nc -zw2 "$SERVER_IP" 514 2>/dev/null; then
-    echo -e "${YELLOW} Server đang ONLINE${NC}"
-    echo -e "${YELLOW}Log sẽ gửi trực tiếp, KHÔNG test được Disk Queue${NC}"
-    echo ""
+echo " Đang chờ server OFFLINE để test Disk Queue..."
 
-    read -p "Bạn có muốn tiếp tục không? (y/n): " choice
-    if [[ "$choice" != "y" ]]; then
-        echo -e "${RED} Dừng test để đảm bảo đúng kịch bản Disk Queue${NC}"
-        exit 1
-    fi
-else
-    echo -e "${GREEN} Server đang OFFLINE — đúng điều kiện test Disk Queue${NC}"
-fi
+while nc -zw2 "$SERVER_IP" 514 2>/dev/null; do
+    echo " Server vẫn ONLINE... chờ tiếp"
+    sleep 2
+done
 
+echo -e "${GREEN} Server đã OFFLINE — bắt đầu test${NC}"
 echo ""
 echo -e "${GREEN} Bắt đầu gửi $TOTAL_MESSAGES log (server đang down)...${NC}"
-echo ""
 
 # --------------------------------------------------------------------------- #
 # Gửi 50 dòng log với tag DOWNTIME_TEST
