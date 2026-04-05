@@ -20,7 +20,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 MY_HOST=$(hostname)
-TOTAL_MESSAGES=50
+TOTAL_MESSAGES=400
 SERVER_IP="192.168.10.100"
 
 # Đường dẫn queue trên disk (phải khớp với queue.filename trong rsyslog-client.conf)
