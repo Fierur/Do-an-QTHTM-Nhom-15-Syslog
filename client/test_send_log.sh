@@ -46,7 +46,7 @@ for i in 1 2 3 4 5; do
     logger -p user.info -t "test-nhom15" "$MSG"
 done
 
-echo -e "${GREEN}✅ Đã gửi 5 log INFO${NC}"
+echo -e "${GREEN} Đã gửi 5 log INFO${NC}"
 sleep 1
 
 ###############################################################################
@@ -68,7 +68,7 @@ for i in "${!WARNINGS[@]}"; do
     logger -p user.warning -t "test-nhom15" "$MSG"
 done
 
-echo -e "${YELLOW}✅ Đã gửi 3 log WARNING${NC}"
+echo -e "${YELLOW} Đã gửi 3 log WARNING${NC}"
 sleep 1
 
 ###############################################################################
@@ -90,7 +90,7 @@ for i in "${!ERRORS[@]}"; do
     logger -p user.err -t "test-nhom15" "$MSG"
 done
 
-echo -e "${RED}✅ Đã gửi 3 log ERROR${NC}"
+echo -e "${RED} Đã gửi 3 log ERROR${NC}"
 sleep 1
 
 ###############################################################################
@@ -111,7 +111,7 @@ for attempt in $(seq 1 6); do
     sleep 0.5
 done
 
-echo -e "${MAGENTA}✅ Đã giả lập 6 lần brute-force — kiểm tra /var/log/alerts/brute_force.log trên server${NC}"
+echo -e "${MAGENTA} Đã giả lập 6 lần brute-force — kiểm tra /var/log/alerts/brute_force.log trên server${NC}"
 sleep 1
 
 ###############################################################################
@@ -125,7 +125,7 @@ CRITICAL_MSG="CRITICAL: Disk full on $(hostname) — /dev/sda1 đã đầy 100%,
 echo -e "  ${RED}→ Gửi CRITICAL:${NC} $CRITICAL_MSG"
 logger -p user.crit -t "disk-monitor" "$CRITICAL_MSG"
 
-echo -e "${RED}✅ Đã gửi 1 log CRITICAL — kiểm tra /var/log/alerts/critical.log trên server${NC}"
+echo -e "${RED} Đã gửi 1 log CRITICAL — kiểm tra /var/log/alerts/critical.log trên server${NC}"
 sleep 1
 
 ###############################################################################
