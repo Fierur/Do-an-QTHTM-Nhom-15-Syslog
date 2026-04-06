@@ -151,7 +151,12 @@ else
 fi
 
 chmod 600 "$CLIENT_KEY"
-chmod 644 "$CLIENT_CRT" "$CERT_DIR/ca.crt"
+
+if [[ -f "$CLIENT_CRT" ]]; then
+    chmod 644 "$CLIENT_CRT"
+fi
+
+chmod 644 "$CERT_DIR/ca.crt"
 
 ###############################################################################
 # BƯỚC 4: Tạo cấu hình Stunnel Client
