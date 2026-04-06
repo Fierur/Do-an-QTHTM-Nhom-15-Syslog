@@ -100,7 +100,7 @@ info "Tạo Client certificate cho $CLIENT_HOSTNAME..."
 
 CLIENT_KEY="$CERT_DIR/client-${CLIENT_HOSTNAME}.key"
 CLIENT_CSR="$CERT_DIR/client-${CLIENT_HOSTNAME}.csr"
-CLIENT_CRT="$CERT_DIR/client-${CLIENT_HOSTNAME}.crt"
+CLIENT_CRT="$CERT_DIR/ca.crt"
 
 if [[ ! -f "$CLIENT_KEY" ]]; then
     # Tạo client private key
