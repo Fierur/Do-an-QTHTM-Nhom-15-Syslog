@@ -46,8 +46,7 @@ CLIENT_HOSTNAME="$2"
 SERVER_IP="192.168.10.100"
 SERVER_TLS_PORT="6514"
 STUNNEL_LOCAL_PORT="5140"   # Port local Rsyslog gửi đến Stunnel
-CERT_DIR="/usr/etc/stunnel/certs"
-CONFIG_FILE="/usr/etc/stunnel/rsyslog-client.conf"
+CERT_DIR="/etc/stunnel/certs"
 
 echo -e "${CYAN}============================================================${NC}"
 echo -e "${CYAN}  SETUP TLS CLIENT (Stunnel) — $CLIENT_HOSTNAME${NC}"
