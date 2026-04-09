@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 # =============================================================================
-# FILE    : tls/setup_tls_client.sh
-# MỤC ĐÍCH: Cài đặt Stunnel trên Client để gửi log mã hóa TLS đến Server
-#           Rsyslog gửi đến localhost:5140 → Stunnel mã hóa → Server:6514
+# FILE    : tls/setup_tls_client.sh  [ĐÃ FIX v2]
+# MỤC ĐÍCH: Cài đặt Stunnel TLS client — gửi log mã hóa đến Syslog Server
 # CÁCH CHẠY: sudo bash setup_tls_client.sh <CLIENT_IP> <HOSTNAME>
-# VÍ DỤ   : sudo bash setup_tls_client.sh 192.168.10.101 web-client
+# VÍ DỤ   : sudo bash setup_tls_client.sh 192.168.10.103 db-client
 #
-# LUỒNG:
-#   [Rsyslog] ──plaintext──→ localhost:5140 ──TLS──→ 192.168.10.100:6514 → [Rsyslog Server]
-#
-# TẠI SAO Rsyslog gửi đến localhost:5140 thay vì thẳng đến server?
-# → Rsyslog chỉ biết gửi plaintext TCP/UDP — không tự mã hóa TLS được
-# → Stunnel đóng vai trò "TLS proxy": nhận plaintext từ Rsyslog (localhost:5140),
-#   mã hóa thành TLS, và gửi lên server:6514
-# → Rsyslog không cần biết gì về TLS → 2 thành phần độc lập, dễ debug riêng
+# CÁC LỖI ĐÃ FIX SO VỚI v1:
+#   1. Thêm "pid = /run/stunnel4/stunnel4.pid" vào conf (bắt buộc Ubuntu 22.04)
+#   2. Đảm bảo thư mục /run/stunnel4/ tồn tại trước khi start
+#   3. Sửa ENABLED=1 trong /etc/default/stunnel4 (mặc định là 0 → không start)
+#   4. Kiểm tra cert thực sự tồn tại trước khi ghi conf
+#   5. Thêm bước verify cert sau khi tạo (openssl verify)
 # =============================================================================
 
 set -euo pipefail
 
+# --------------------------------------------------------------------------- #
+# Màu terminal
+# --------------------------------------------------------------------------- #
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -28,14 +28,15 @@ NC='\033[0m'
 ok()   { echo -e "${GREEN}✅ $1${NC}"; }
 fail() { echo -e "${RED}❌ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}➡️  $1${NC}"; }
+warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 
 # --------------------------------------------------------------------------- #
-# Kiểm tra tham số
+# Kiểm tra tham số và quyền root
 # --------------------------------------------------------------------------- #
 if [[ $# -lt 2 ]]; then
     echo -e "${RED}Thiếu tham số!${NC}"
     echo "Cú pháp: sudo bash $0 <CLIENT_IP> <HOSTNAME>"
-    echo "Ví dụ  : sudo bash $0 192.168.10.101 web-client"
+    echo "Ví dụ  : sudo bash $0 192.168.10.103 db-client"
     exit 1
 fi
 
@@ -45,187 +46,272 @@ CLIENT_IP="$1"
 CLIENT_HOSTNAME="$2"
 SERVER_IP="192.168.10.100"
 SERVER_TLS_PORT="6514"
-STUNNEL_LOCAL_PORT="5140"   # Port local Rsyslog gửi đến Stunnel
+STUNNEL_LOCAL_PORT="5140"
 CERT_DIR="/etc/stunnel/certs"
+CONF_FILE="/etc/stunnel/rsyslog-client.conf"
+
+# Tên file cert theo hostname (phải khớp chính xác)
+CLIENT_KEY="${CERT_DIR}/client-${CLIENT_HOSTNAME}.key"
+CLIENT_CRT="${CERT_DIR}/client-${CLIENT_HOSTNAME}.crt"
+CLIENT_CSR="/tmp/client-${CLIENT_HOSTNAME}.csr"
+CA_CRT="${CERT_DIR}/ca.crt"
+CA_KEY="${CERT_DIR}/ca.key"   # Chỉ cần nếu ký cert ngay trên client
 
 echo -e "${CYAN}============================================================${NC}"
-echo -e "${CYAN}  SETUP TLS CLIENT (Stunnel) — $CLIENT_HOSTNAME${NC}"
+echo -e "${CYAN}  SETUP TLS CLIENT (Stunnel) v2 — $CLIENT_HOSTNAME${NC}"
 echo -e "${CYAN}============================================================${NC}"
 echo ""
 
 ###############################################################################
-# BƯỚC 1: Cài đặt Stunnel4 và OpenSSL
+# BƯỚC 1: Cài đặt stunnel4 và openssl
 ###############################################################################
-info "Cài đặt stunnel4 và openssl..."
+info "Bước 1: Cài đặt stunnel4 và openssl..."
 apt-get update -qq
 apt-get install -y -qq stunnel4 openssl
-ok "stunnel4 và openssl đã cài"
+ok "stunnel4 $(stunnel4 -version 2>&1 | head -1 | awk '{print $2}') đã cài"
 
 ###############################################################################
-# BƯỚC 2: Kiểm tra CA certificate từ Server
+# BƯỚC 2: Tạo thư mục cert và PID
+#
+# FIX: Tạo /run/stunnel4/ — thư mục này cần tồn tại trước khi stunnel4 start
+# vì stunnel sẽ ghi file pid vào đây. Nếu không có thư mục → start fail.
+# /run/ là tmpfs (xóa khi reboot) nên cần tạo lại mỗi lần.
+# Cách đúng: dùng tmpfiles.d để systemd tự tạo sau mỗi boot.
 ###############################################################################
-info "Kiểm tra CA certificate từ Server..."
+info "Bước 2: Tạo thư mục cert và thư mục PID..."
 
 mkdir -p "$CERT_DIR"
 chmod 700 "$CERT_DIR"
 
-if [[ ! -f "$CERT_DIR/ca.crt" ]]; then
-    # Tìm ở /tmp (nơi scp thường copy vào)
+# Tạo thư mục PID — stunnel cần ghi /run/stunnel4/stunnel4.pid
+mkdir -p /run/stunnel4
+chown stunnel4:stunnel4 /run/stunnel4 2>/dev/null || chown root:root /run/stunnel4
+chmod 755 /run/stunnel4
+
+# Đảm bảo /run/stunnel4/ được tạo lại sau mỗi lần reboot (dùng tmpfiles.d)
+# FIX: không có dòng này → sau reboot thư mục mất → stunnel fail
+if [[ ! -f /etc/tmpfiles.d/stunnel4.conf ]]; then
+    echo "d /run/stunnel4 0755 stunnel4 stunnel4 -" > /etc/tmpfiles.d/stunnel4.conf 2>/dev/null || \
+    echo "d /run/stunnel4 0755 root root -" > /etc/tmpfiles.d/stunnel4.conf
+fi
+
+ok "Thư mục $CERT_DIR và /run/stunnel4/ đã tạo"
+
+###############################################################################
+# BƯỚC 3: Kiểm tra CA certificate từ Server
+#
+# ca.crt phải được copy từ server trước (dùng scp).
+# ca.key chỉ cần nếu muốn ký cert ngay trên client (không bắt buộc).
+###############################################################################
+info "Bước 3: Kiểm tra CA certificate..."
+
+if [[ ! -f "$CA_CRT" ]]; then
+    # Thử tìm ở /tmp (nơi scp thường để)
     if [[ -f "/tmp/ca.crt" ]]; then
-        cp "/tmp/ca.crt" "$CERT_DIR/ca.crt"
-        ok "CA cert đã copy từ /tmp/ca.crt"
+        cp "/tmp/ca.crt" "$CA_CRT"
+        chmod 644 "$CA_CRT"
+        ok "CA cert đã copy từ /tmp/ca.crt vào $CA_CRT"
     else
+        echo ""
         echo -e "${RED}❌ Không tìm thấy ca.crt!${NC}"
         echo ""
-        echo -e "${YELLOW}  Hướng dẫn: Chạy lệnh này TRÊN SERVER để copy sang client:${NC}"
+        echo -e "${YELLOW}  Chạy lệnh này TRÊN SERVER để copy sang client:${NC}"
         echo -e "  ${CYAN}scp /etc/stunnel/certs/ca.crt $(whoami)@${CLIENT_IP}:/tmp/ca.crt${NC}"
         echo ""
         echo -e "  Sau đó chạy lại script này."
         exit 1
     fi
 else
-    ok "CA cert đã tồn tại tại $CERT_DIR/ca.crt"
+    ok "CA cert đã có tại $CA_CRT"
 fi
 
 ###############################################################################
-# BƯỚC 3: Tạo Client Certificate (ký bởi CA của Server)
+# BƯỚC 4: Tạo Client Certificate
 #
-# TẠI SAO mỗi client cần cert riêng?
-# → Server cấu hình verify=2 (Mutual TLS): xác thực TỪNG client riêng biệt
-# → Nếu 1 client bị compromise, chỉ cần thu hồi cert của client đó
-#   (không ảnh hưởng client khác)
-# → Tên file theo hostname: dễ quản lý khi có nhiều client
+# FIX v1: Nếu ký cert thất bại (do thiếu ca.key), script vẫn tiếp tục
+#         ghi conf → conf trỏ đến cert không tồn tại → stunnel fail.
+# FIX v2: Kiểm tra cert có tồn tại VÀ hợp lệ (verify) TRƯỚC khi ghi conf.
 ###############################################################################
-info "Tạo Client certificate cho $CLIENT_HOSTNAME..."
+info "Bước 4: Tạo Client certificate cho $CLIENT_HOSTNAME..."
 
-CLIENT_KEY="$CERT_DIR/client-${CLIENT_HOSTNAME}.key"
-CLIENT_CSR="$CERT_DIR/client-${CLIENT_HOSTNAME}.csr"
-CLIENT_CRT="$CERT_DIR/client-${CLIENT_HOSTNAME}.crt"
+CERT_NEEDS_CREATE=false
 
-if [[ ! -f "$CLIENT_KEY" ]]; then
-    # Tạo client private key
+if [[ -f "$CLIENT_KEY" && -f "$CLIENT_CRT" ]]; then
+    # Cert đã có — kiểm tra còn hợp lệ không
+    if openssl verify -CAfile "$CA_CRT" "$CLIENT_CRT" 2>/dev/null | grep -q "OK"; then
+        ok "Client cert đã tồn tại và hợp lệ — bỏ qua tạo mới (idempotent)"
+    else
+        warn "Client cert tồn tại nhưng KHÔNG hợp lệ — sẽ tạo lại"
+        CERT_NEEDS_CREATE=true
+    fi
+else
+    CERT_NEEDS_CREATE=true
+fi
+
+if [[ "$CERT_NEEDS_CREATE" == "true" ]]; then
+    # Tạo private key
     openssl genrsa -out "$CLIENT_KEY" 2048 2>/dev/null
-    ok "Client private key đã tạo"
+    chmod 600 "$CLIENT_KEY"
+    ok "Private key đã tạo: $CLIENT_KEY"
 
-    # Tạo CSR với CN = hostname của client
+    # Tạo CSR
     openssl req -new \
         -key "$CLIENT_KEY" \
         -out "$CLIENT_CSR" \
         -subj "/C=VN/ST=HoChiMinh/O=Nhom15Lab/CN=${CLIENT_HOSTNAME}" \
         2>/dev/null
-    ok "CSR đã tạo"
+    ok "CSR đã tạo: $CLIENT_CSR"
 
-    # Ký CSR bằng CA — cần file ca.key từ server
-    # QUAN TRỌNG: ca.key là private key của CA, KHÔNG copy ra ngoài trong production
-    # Trong lab: copy tạm để ký, xong xóa đi
-    if [[ -f "$CERT_DIR/ca.key" ]]; then
+    # Ký cert: ưu tiên ký trực tiếp nếu có ca.key
+    if [[ -f "$CA_KEY" ]]; then
         openssl x509 -req \
             -in "$CLIENT_CSR" \
-            -CA "$CERT_DIR/ca.crt" \
-            -CAkey "$CERT_DIR/ca.key" \
+            -CA "$CA_CRT" \
+            -CAkey "$CA_KEY" \
             -CAcreateserial \
             -out "$CLIENT_CRT" \
             -days 3650 2>/dev/null
         rm -f "$CLIENT_CSR"
-        ok "Client certificate đã ký bởi CA"
+        chmod 644 "$CLIENT_CRT"
+        ok "Client cert đã ký bởi CA (dùng ca.key local)"
     else
-        echo -e "${YELLOW}⚠️  Không có ca.key — cần ký cert trên Server${NC}"
+        # Không có ca.key trên client — hướng dẫn ký trên server
         echo ""
-        echo -e "  Thay thế: Copy CSR lên Server để ký, rồi copy cert về:"
-        echo -e "  ${CYAN}# Trên CLIENT — copy CSR lên server:${NC}"
-        echo -e "  scp $CLIENT_CSR user@${SERVER_IP}:/tmp/"
+        echo -e "${YELLOW}⚠️  Không có ca.key trên client — cần ký cert trên Server.${NC}"
         echo ""
-        echo -e "  ${CYAN}# Trên SERVER — ký CSR:${NC}"
-        echo -e "  openssl x509 -req -in /tmp/client-${CLIENT_HOSTNAME}.csr \\"
-        echo -e "    -CA /etc/stunnel/certs/ca.crt -CAkey /etc/stunnel/certs/ca.key \\"
-        echo -e "    -CAcreateserial -out /tmp/client-${CLIENT_HOSTNAME}.crt -days 3650"
+        echo -e "${CYAN}  Bước 4a: Copy CSR lên Server:${NC}"
+        echo -e "  scp $CLIENT_CSR $(whoami)@${SERVER_IP}:/tmp/"
         echo ""
-        echo -e "  ${CYAN}# Copy cert về CLIENT:${NC}"
-        echo -e "  scp user@${SERVER_IP}:/tmp/client-${CLIENT_HOSTNAME}.crt $CLIENT_CRT"
+        echo -e "${CYAN}  Bước 4b: Trên Server, ký CSR:${NC}"
+        echo -e "  sudo openssl x509 -req \\"
+        echo -e "    -in /tmp/client-${CLIENT_HOSTNAME}.csr \\"
+        echo -e "    -CA /etc/stunnel/certs/ca.crt \\"
+        echo -e "    -CAkey /etc/stunnel/certs/ca.key \\"
+        echo -e "    -CAcreateserial \\"
+        echo -e "    -out /tmp/client-${CLIENT_HOSTNAME}.crt \\"
+        echo -e "    -days 3650"
         echo ""
-        echo -e "  Sau đó chạy lại script."
+        echo -e "${CYAN}  Bước 4c: Copy cert về client:${NC}"
+        echo -e "  scp user@${SERVER_IP}:/tmp/client-${CLIENT_HOSTNAME}.crt /tmp/"
+        echo -e "  sudo cp /tmp/client-${CLIENT_HOSTNAME}.crt $CLIENT_CRT"
+        echo -e "  sudo chmod 644 $CLIENT_CRT"
+        echo ""
+        echo -e "${CYAN}  Bước 4d: Sau đó chạy lại script:${NC}"
+        echo -e "  sudo bash $0 $CLIENT_IP $CLIENT_HOSTNAME"
         exit 1
     fi
-else
-    ok "Client cert đã tồn tại — bỏ qua"
+
+    # FIX: Kiểm tra cert hợp lệ NGAY SAU KHI TẠO — không đợi đến lúc stunnel fail
+    if openssl verify -CAfile "$CA_CRT" "$CLIENT_CRT" 2>/dev/null | grep -q "OK"; then
+        ok "Xác nhận: client cert hợp lệ (verify OK)"
+    else
+        fail "Client cert tạo ra nhưng KHÔNG hợp lệ — kiểm tra ca.crt và ca.key có đúng cặp không"
+    fi
 fi
 
-chmod 600 "$CLIENT_KEY"
-chmod 644 "$CLIENT_CRT" "$CERT_DIR/ca.crt"
-
 ###############################################################################
-# BƯỚC 4: Tạo cấu hình Stunnel Client
+# BƯỚC 5: Ghi file cấu hình Stunnel Client
+#
+# FIX 1: Thêm dòng "pid = /run/stunnel4/stunnel4.pid"
+#         → Bắt buộc trên Ubuntu 22.04, thiếu → lỗi "no pid=pidfile specified"
+# FIX 2: Ghi conf SAU KHI xác nhận cert tồn tại (không ghi conf rồi mới tạo cert)
 ###############################################################################
-info "Tạo cấu hình Stunnel client..."
+info "Bước 5: Ghi file cấu hình Stunnel client..."
 
-cat > /etc/stunnel/rsyslog-client.conf <<EOF
+cat > "$CONF_FILE" <<EOF
 # =============================================================================
-# Cấu hình Stunnel Client — $CLIENT_HOSTNAME ($CLIENT_IP) — Nhóm 15
-# Nhận plaintext từ Rsyslog:$STUNNEL_LOCAL_PORT → mã hóa TLS → Server:$SERVER_TLS_PORT
+# Cấu hình Stunnel Client — ${CLIENT_HOSTNAME} (${CLIENT_IP}) — Nhóm 15
+# Nhận plaintext từ Rsyslog:${STUNNEL_LOCAL_PORT} → mã hóa TLS → Server:${SERVER_TLS_PORT}
+# Tạo bởi setup_tls_client.sh v2
 # =============================================================================
 
+# BẮT BUỘC trên Ubuntu 22.04 — systemd cần biết PID của stunnel để quản lý
+# Thiếu dòng này → lỗi "no pid=pidfile specified" → stunnel không start
+pid = /run/stunnel4/stunnel4.pid
+
+# Ghi log stunnel vào syslog (xem bằng: journalctl -u stunnel4)
 syslog = yes
+
+# Mức log: 5=notice (tốt cho debug), giảm xuống 3 khi production
 debug = 5
+
+# Tắt FIPS — không cần trong môi trường lab
 fips = no
 
 [rsyslog-tls]
-# client=yes: Stunnel hoạt động ở chế độ CLIENT (chủ động kết nối ra ngoài)
-# TẠI SAO cần ghi rõ client=yes?
-# → Stunnel mặc định là server mode (nhận kết nối vào)
-# → client=yes đảo ngược: Stunnel NHẬN từ Rsyslog và KHỞI TẠO kết nối ra server
-client = yes
+# client=yes: Stunnel chủ động kết nối ra ngoài (không chờ kết nối vào)
+client  = yes
 
-# Lắng nghe plaintext từ Rsyslog trên localhost (không mở ra mạng ngoài)
-# TẠI SAO 127.0.0.1:5140? Vì Rsyslog và Stunnel cùng máy
-# Port 5140: tránh conflict với 514 (Rsyslog plaintext) và 6514 (TLS server)
-accept = 127.0.0.1:$STUNNEL_LOCAL_PORT
+# Lắng nghe plaintext từ Rsyslog trên localhost:${STUNNEL_LOCAL_PORT}
+# 127.0.0.1 = chỉ nhận từ chính máy này, không mở ra mạng ngoài
+accept  = 127.0.0.1:${STUNNEL_LOCAL_PORT}
 
-# Kết nối đến Server Stunnel qua TLS
+# Kết nối TLS đến Syslog Server
 connect = ${SERVER_IP}:${SERVER_TLS_PORT}
 
-# Certificate của client (để server xác thực)
-cert = $CLIENT_CRT
-key  = $CLIENT_KEY
+# Certificate client (để server xác thực đây là client hợp lệ)
+cert    = ${CLIENT_CRT}
 
-# CA certificate để xác thực server (chống man-in-the-middle)
-# TẠI SAO client cũng cần verify server?
-# → Nếu không verify, kẻ tấn công có thể dựng server giả mạo để thu thập log
-# → verify=2: client xác thực server cert phải được ký bởi CA của lab
-CAfile = $CERT_DIR/ca.crt
-verify = 2
+# Private key tương ứng — KHÔNG chia sẻ
+key     = ${CLIENT_KEY}
+
+# CA cert để xác thực server (chống giả mạo)
+CAfile  = ${CA_CRT}
+
+# verify=2 = Mutual TLS: bắt buộc xác thực cert 2 chiều
+verify  = 2
 EOF
 
-ok "Cấu hình Stunnel client đã tạo"
+ok "File cấu hình đã ghi: $CONF_FILE"
 
 ###############################################################################
-# BƯỚC 5: Append rule vào rsyslog.d để gửi qua Stunnel
+# BƯỚC 6: Sửa /etc/default/stunnel4
 #
-# TẠI SAO APPEND thay vì ghi đè?
-# → Không được sửa file gốc (rsyslog-client.conf / 99-remote.conf)
-# → Thêm rule mới: *.* gửi qua localhost:5140 (Stunnel)
-# → Rsyslog sẽ gửi log vừa qua Stunnel (TLS) vừa giữ các rule cũ (UDP/TCP thường)
-# → Trong production thực tế sẽ comment out các rule non-TLS
+# FIX: Ubuntu mặc định ENABLED=0 → stunnel4 không bao giờ start
+#      Dù có systemctl enable stunnel4 cũng vô nghĩa nếu ENABLED=0
 ###############################################################################
-info "Thêm rule TLS vào /etc/rsyslog.d/99-remote.conf..."
+info "Bước 6: Sửa /etc/default/stunnel4 (ENABLED=1)..."
 
-RSYSLOG_CLIENT_CONF="/etc/rsyslog.d/99-remote.conf"
-TLS_MARKER="# TLS-VIA-STUNNEL"
+DEFAULT_FILE="/etc/default/stunnel4"
 
-if [[ ! -f "$RSYSLOG_CLIENT_CONF" ]]; then
-    fail "$RSYSLOG_CLIENT_CONF không tồn tại — chạy setup_client.sh trước"
+if grep -q "^ENABLED=0" "$DEFAULT_FILE" 2>/dev/null; then
+    sed -i 's/^ENABLED=0/ENABLED=1/' "$DEFAULT_FILE"
+    ok "Đã sửa ENABLED=0 → ENABLED=1"
+elif grep -q "^ENABLED=1" "$DEFAULT_FILE" 2>/dev/null; then
+    ok "ENABLED=1 đã có — bỏ qua"
+else
+    # Không có dòng ENABLED → thêm vào
+    echo "ENABLED=1" >> "$DEFAULT_FILE"
+    ok "Đã thêm ENABLED=1 vào $DEFAULT_FILE"
 fi
 
-# Idempotent: chỉ append nếu chưa có
-if grep -q "$TLS_MARKER" "$RSYSLOG_CLIENT_CONF"; then
-    ok "Rule TLS đã có trong $RSYSLOG_CLIENT_CONF — bỏ qua"
+# Đảm bảo FILES trỏ đúng conf
+if grep -q "^FILES=" "$DEFAULT_FILE" 2>/dev/null; then
+    sed -i "s|^FILES=.*|FILES=\"${CONF_FILE}\"|" "$DEFAULT_FILE"
 else
-    cat >> "$RSYSLOG_CLIENT_CONF" <<RSYSLOG_RULE
+    echo "FILES=\"${CONF_FILE}\"" >> "$DEFAULT_FILE"
+fi
+ok "FILES trỏ đến: $CONF_FILE"
+
+###############################################################################
+# BƯỚC 7: Append rule vào rsyslog client conf
+###############################################################################
+info "Bước 7: Thêm rule TLS vào /etc/rsyslog.d/99-remote.conf..."
+
+RSYSLOG_CONF="/etc/rsyslog.d/99-remote.conf"
+TLS_MARKER="# TLS-VIA-STUNNEL"
+
+if [[ ! -f "$RSYSLOG_CONF" ]]; then
+    warn "$RSYSLOG_CONF không tồn tại — chạy setup_client.sh trước"
+else
+    if grep -q "$TLS_MARKER" "$RSYSLOG_CONF"; then
+        ok "Rule TLS đã có trong $RSYSLOG_CONF — bỏ qua (idempotent)"
+    else
+        cat >> "$RSYSLOG_CONF" <<RSYSLOG_RULE
 
 # =============================================================================
-$TLS_MARKER — Thêm bởi setup_tls_client.sh
-# Gửi log qua Stunnel (TLS) thay vì thẳng lên server
-# Rsyslog gửi plaintext đến localhost:$STUNNEL_LOCAL_PORT
-# Stunnel nhận, mã hóa TLS, và gửi đến ${SERVER_IP}:${SERVER_TLS_PORT}
+${TLS_MARKER} — Thêm bởi setup_tls_client.sh v2
+# Rsyslog gửi plaintext → localhost:${STUNNEL_LOCAL_PORT} → Stunnel mã hóa → Server
 # =============================================================================
 *.*     action(type="omfwd"
               target="127.0.0.1"
@@ -238,54 +324,60 @@ $TLS_MARKER — Thêm bởi setup_tls_client.sh
               action.resumeRetryCount="-1"
               action.resumeInterval="10")
 RSYSLOG_RULE
-    ok "Rule TLS đã append vào $RSYSLOG_CLIENT_CONF"
+        ok "Rule TLS đã append vào $RSYSLOG_CONF"
+    fi
 fi
 
 ###############################################################################
-# BƯỚC 6: Enable và start Stunnel Client
+# BƯỚC 8: Enable và start Stunnel4
 ###############################################################################
-info "Enable và start Stunnel4 client..."
-
-sed -i 's/^ENABLED=0/ENABLED=1/' /etc/default/stunnel4 2>/dev/null || true
-sed -i 's|^#\?FILES=.*|FILES="/etc/stunnel/rsyslog-client.conf"|' \
-    /etc/default/stunnel4 2>/dev/null || true
+info "Bước 8: Enable và start stunnel4..."
 
 systemctl enable stunnel4
 systemctl restart stunnel4
 sleep 2
 
 if systemctl is-active --quiet stunnel4; then
-    ok "Stunnel4 client đang chạy"
+    ok "stunnel4 đang ACTIVE (running)"
 else
-    fail "Stunnel4 không khởi động — chạy: journalctl -u stunnel4 -n 20"
+    echo ""
+    echo -e "${RED}❌ stunnel4 không start — xem log chi tiết:${NC}"
+    journalctl -u stunnel4 -n 20 --no-pager 2>/dev/null || true
+    exit 1
 fi
 
-# Kiểm tra port 5140 đang lắng nghe local
-if ss -tlnp | grep -q ":$STUNNEL_LOCAL_PORT"; then
-    ok "Stunnel đang lắng nghe localhost:$STUNNEL_LOCAL_PORT"
+# Kiểm tra port 5140 đang lắng nghe
+if ss -tlnp 2>/dev/null | grep -q ":${STUNNEL_LOCAL_PORT}"; then
+    ok "Port ${STUNNEL_LOCAL_PORT} đang lắng nghe — Stunnel sẵn sàng"
 else
-    fail "Port $STUNNEL_LOCAL_PORT chưa mở — kiểm tra stunnel config"
+    warn "Port ${STUNNEL_LOCAL_PORT} chưa thấy — đợi thêm 3 giây..."
+    sleep 3
+    if ss -tlnp 2>/dev/null | grep -q ":${STUNNEL_LOCAL_PORT}"; then
+        ok "Port ${STUNNEL_LOCAL_PORT} đã mở"
+    else
+        warn "Port ${STUNNEL_LOCAL_PORT} vẫn chưa mở — kiểm tra log stunnel"
+    fi
 fi
 
 ###############################################################################
-# BƯỚC 7: Restart Rsyslog để áp dụng rule mới
+# BƯỚC 9: Restart Rsyslog để áp dụng rule TLS mới
 ###############################################################################
-info "Khởi động lại Rsyslog..."
+info "Bước 9: Restart Rsyslog..."
 systemctl restart rsyslog
 sleep 1
 ok "Rsyslog đã restart với rule TLS mới"
 
 ###############################################################################
-# Kết quả
+# KẾT QUẢ
 ###############################################################################
 echo ""
 echo -e "${GREEN}============================================================${NC}"
-echo -e "${GREEN}  TLS CLIENT SETUP HOÀN TẤT — $CLIENT_HOSTNAME${NC}"
+echo -e "${GREEN}  TLS CLIENT SETUP HOÀN TẤT v2 — $CLIENT_HOSTNAME${NC}"
 echo -e "${GREEN}============================================================${NC}"
-echo -e "  Luồng : Rsyslog → localhost:$STUNNEL_LOCAL_PORT → Stunnel → ${SERVER_IP}:$SERVER_TLS_PORT"
-echo -e "  Cert  : $CLIENT_CRT"
+echo -e "  Cert     : $CLIENT_CRT"
+echo -e "  Conf     : $CONF_FILE"
+echo -e "  Luồng   : Rsyslog → localhost:${STUNNEL_LOCAL_PORT} → TLS → ${SERVER_IP}:${SERVER_TLS_PORT}"
 echo ""
-echo -e "  Test ngay:"
-echo -e "  ${CYAN}logger -p user.info 'TLS test từ $CLIENT_HOSTNAME'${NC}"
-echo -e "  ${CYAN}bash tls/verify_tls.sh  (chạy trên server)${NC}"
+echo -e "  Kiểm tra đầy đủ:"
+echo -e "  ${CYAN}bash verify_stunnel_fix.sh${NC}"
 echo -e "${GREEN}============================================================${NC}"
