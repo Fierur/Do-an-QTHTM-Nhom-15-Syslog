@@ -5,7 +5,7 @@
 # CÁCH CHẠY: sudo bash setup_tls_client.sh <CLIENT_IP> <HOSTNAME>
 # VÍ DỤ   : sudo bash setup_tls_client.sh 192.168.10.103 db-client
 #
-# CÁC LỖI ĐÃ FIX SO VỚI v1:
+# CÁC LỖI ĐÃ FIX:
 #   1. Thêm "pid = /run/stunnel4/stunnel4.pid" vào conf (bắt buộc Ubuntu 22.04)
 #   2. Đảm bảo thư mục /run/stunnel4/ tồn tại trước khi start
 #   3. Sửa ENABLED=1 trong /etc/default/stunnel4 (mặc định là 0 → không start)
