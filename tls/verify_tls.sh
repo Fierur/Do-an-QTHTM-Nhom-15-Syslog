@@ -24,9 +24,9 @@ LOG_DIR="/var/log/remote"
 PASS=0
 FAIL=0
 
-check_ok()   { echo -e "  ${GREEN}✅ $1${NC}"; PASS=$((PASS+1)); }
-check_fail() { echo -e "  ${RED}❌ $1${NC}"; FAIL=$((FAIL+1)); }
-info()       { echo -e "${BLUE}➡️  $1${NC}"; }
+check_ok()   { echo -e "  ${GREEN}OK $1${NC}"; PASS=$((PASS+1)); }
+check_fail() { echo -e "  ${RED}FAIL $1${NC}"; FAIL=$((FAIL+1)); }
+info()       { echo -e "${BLUE}INFO  $1${NC}"; }
 
 echo -e "${CYAN}${BOLD}"
 echo "╔══════════════════════════════════════════════════════════════╗"
@@ -126,7 +126,7 @@ CIPHER=$(echo "$TLS_OUTPUT" | grep "^    Cipher" | head -1 | awk '{print $NF}')
 if [[ -n "$CIPHER" ]]; then
     check_ok "Cipher suite: $CIPHER"
 else
-    echo -e "  ${YELLOW}⚠️  Không đọc được cipher — xem raw output bên dưới${NC}"
+    echo -e "  ${YELLOW}  Không đọc được cipher — xem raw output bên dưới${NC}"
 fi
 
 # --- Kiểm tra certificate subject ---
@@ -142,7 +142,7 @@ VERIFY_CODE=$(echo "$TLS_OUTPUT" | grep "Verify return code" | head -1)
 if echo "$VERIFY_CODE" | grep -q "return code: 0"; then
     check_ok "TLS handshake THÀNH CÔNG ($VERIFY_CODE)"
 elif echo "$VERIFY_CODE" | grep -q "return code: 21"; then
-    echo -e "  ${YELLOW}⚠️  Verify code 21: Server yêu cầu client cert (verify=2)${NC}"
+    echo -e "  ${YELLOW}  Verify code 21: Server yêu cầu client cert (verify=2)${NC}"
     echo -e "  ${YELLOW}   → Bình thường khi test từ server (không có client cert đúng)${NC}"
     echo -e "  ${YELLOW}   → TLS connection đã thành công, chỉ thiếu mutual auth${NC}"
     PASS=$((PASS+1))
@@ -226,7 +226,7 @@ echo -e "  4. So sánh với port 514 (plaintext) → thấy text rõ ràng"
 if command -v tcpdump &>/dev/null; then
     check_ok "tcpdump đã cài (có thể demo ngay)"
 else
-    echo -e "  ${YELLOW}⚠️  tcpdump chưa cài: sudo apt install tcpdump${NC}"
+    echo -e "  ${YELLOW}  tcpdump chưa cài: sudo apt install tcpdump${NC}"
 fi
 
 echo ""
@@ -240,13 +240,13 @@ echo -e "  KẾT QUẢ: ${GREEN}$PASS passed${NC} / ${RED}$FAIL failed${NC} / $T
 echo ""
 
 if [[ $FAIL -eq 0 ]]; then
-    echo -e "  ${GREEN}${BOLD}✅ TLS HOẠT ĐỘNG HOÀN TOÀN${NC}"
+    echo -e "  ${GREEN}${BOLD} TLS HOẠT ĐỘNG HOÀN TOÀN${NC}"
     echo -e "  ${CYAN}Giải thích cho giảng viên:${NC}"
     echo -e "  • Cipher: mã hóa symmetric (AES-256) sau TLS handshake"
     echo -e "  • Verify return code 0: cert server hợp lệ, được ký bởi CA tin cậy"
     echo -e "  • Stunnel proxy: Rsyslog ↔ localhost ↔ Stunnel ↔ mạng TLS ↔ Server"
     echo -e "  • Mutual TLS (verify=2): cả 2 chiều đều xác thực cert"
 else
-    echo -e "  ${YELLOW}⚠️  Có $FAIL kiểm tra thất bại — xem chi tiết bên trên${NC}"
+    echo -e "  ${YELLOW}  Có $FAIL kiểm tra thất bại — xem chi tiết bên trên${NC}"
 fi
 echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════════════${NC}"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# FILE    : tls/setup_tls_client.sh  [ĐÃ FIX v2]
+# FILE    : tls/setup_tls_client.sh 
 # MỤC ĐÍCH: Cài đặt Stunnel TLS client — gửi log mã hóa đến Syslog Server
 # CÁCH CHẠY: sudo bash setup_tls_client.sh <CLIENT_IP> <HOSTNAME>
 # VÍ DỤ   : sudo bash setup_tls_client.sh 192.168.10.103 db-client
@@ -25,10 +25,16 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+<<<<<<< HEAD
 ok()   { echo -e "${GREEN}✅ $1${NC}"; }
 fail() { echo -e "${RED}❌ $1${NC}"; exit 1; }
 info() { echo -e "${BLUE}➡️  $1${NC}"; }
 warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+=======
+ok()   { echo -e "${GREEN}OK $1${NC}"; }
+fail() { echo -e "${RED}FAIL $1${NC}"; exit 1; }
+info() { echo -e "${BLUE}INFO  $1${NC}"; }
+>>>>>>> 5698d3a177c6f227599bb4fb85c1b524f045304e
 
 # --------------------------------------------------------------------------- #
 # Kiểm tra tham số và quyền root
@@ -46,7 +52,12 @@ CLIENT_IP="$1"
 CLIENT_HOSTNAME="$2"
 SERVER_IP="192.168.10.100"
 SERVER_TLS_PORT="6514"
+<<<<<<< HEAD
 STUNNEL_LOCAL_PORT="5140"
+=======
+STUNNEL_LOCAL_PORT="5140"   # Port local Rsyslog gửi đến Stunnel
+
+>>>>>>> 5698d3a177c6f227599bb4fb85c1b524f045304e
 CERT_DIR="/etc/stunnel/certs"
 CONF_FILE="/etc/stunnel/rsyslog-client.conf"
 
@@ -68,7 +79,12 @@ echo ""
 info "Bước 1: Cài đặt stunnel4 và openssl..."
 apt-get update -qq
 apt-get install -y -qq stunnel4 openssl
+<<<<<<< HEAD
 ok "stunnel4 $(stunnel4 -version 2>&1 | head -1 | awk '{print $2}') đã cài"
+=======
+apt remove stunnel4
+ok "stunnel4 và openssl đã cài"
+>>>>>>> 5698d3a177c6f227599bb4fb85c1b524f045304e
 
 ###############################################################################
 # BƯỚC 2: Tạo thư mục cert và PID
@@ -112,8 +128,12 @@ if [[ ! -f "$CA_CRT" ]]; then
         chmod 644 "$CA_CRT"
         ok "CA cert đã copy từ /tmp/ca.crt vào $CA_CRT"
     else
+<<<<<<< HEAD
         echo ""
         echo -e "${RED}❌ Không tìm thấy ca.crt!${NC}"
+=======
+        echo -e "${RED} Không tìm thấy ca.crt!${NC}"
+>>>>>>> 5698d3a177c6f227599bb4fb85c1b524f045304e
         echo ""
         echo -e "${YELLOW}  Chạy lệnh này TRÊN SERVER để copy sang client:${NC}"
         echo -e "  ${CYAN}scp /etc/stunnel/certs/ca.crt $(whoami)@${CLIENT_IP}:/tmp/ca.crt${NC}"
@@ -134,7 +154,13 @@ fi
 ###############################################################################
 info "Bước 4: Tạo Client certificate cho $CLIENT_HOSTNAME..."
 
+<<<<<<< HEAD
 CERT_NEEDS_CREATE=false
+=======
+CLIENT_KEY="$CERT_DIR/client-${CLIENT_HOSTNAME}.key"
+CLIENT_CSR="$CERT_DIR/client-${CLIENT_HOSTNAME}.csr"
+CLIENT_CRT="$CERT_DIR/ca.crt"
+>>>>>>> 5698d3a177c6f227599bb4fb85c1b524f045304e
 
 if [[ -f "$CLIENT_KEY" && -f "$CLIENT_CRT" ]]; then
     # Cert đã có — kiểm tra còn hợp lệ không
@@ -175,7 +201,11 @@ if [[ "$CERT_NEEDS_CREATE" == "true" ]]; then
         chmod 644 "$CLIENT_CRT"
         ok "Client cert đã ký bởi CA (dùng ca.key local)"
     else
+<<<<<<< HEAD
         # Không có ca.key trên client — hướng dẫn ký trên server
+=======
+        echo -e "${YELLOW}  Không có ca.key — cần ký cert trên Server${NC}"
+>>>>>>> 5698d3a177c6f227599bb4fb85c1b524f045304e
         echo ""
         echo -e "${YELLOW}⚠️  Không có ca.key trên client — cần ký cert trên Server.${NC}"
         echo ""
@@ -209,6 +239,17 @@ if [[ "$CERT_NEEDS_CREATE" == "true" ]]; then
     fi
 fi
 
+<<<<<<< HEAD
+=======
+chmod 600 "$CLIENT_KEY"
+
+if [[ -f "$CLIENT_CRT" ]]; then
+    chmod 644 "$CLIENT_CRT"
+fi
+
+chmod 644 "$CERT_DIR/ca.crt"
+
+>>>>>>> 5698d3a177c6f227599bb4fb85c1b524f045304e
 ###############################################################################
 # BƯỚC 5: Ghi file cấu hình Stunnel Client
 #

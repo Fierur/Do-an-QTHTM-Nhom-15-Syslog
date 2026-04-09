@@ -21,10 +21,10 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-ok()   { echo -e "${GREEN}✅ $1${NC}"; }
-fail() { echo -e "${RED}❌ $1${NC}"; exit 1; }
-info() { echo -e "${BLUE}➡️  $1${NC}"; }
-warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+ok()   { echo -e "${GREEN}OK $1${NC}"; }
+fail() { echo -e "${RED}FAIL $1${NC}"; exit 1; }
+info() { echo -e "${BLUE}INFO  $1${NC}"; }
+warn() { echo -e "${YELLOW}WARN  $1${NC}"; }
 
 # --------------------------------------------------------------------------- #
 # BƯỚC 0: Kiểm tra tham số đầu vào
